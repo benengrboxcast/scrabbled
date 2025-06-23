@@ -1,13 +1,18 @@
-# Scrabble Game Implementation Plan (Go)
+# Scrabble Game Design & Requirements
 
 ## Project Overview
-Develop a multiplayer Scrabble game using Go with client-server architecture. The server manages game state and validates moves, while clients provide the user interface for gameplay.
+This document outlines the design and requirements for a multiplayer Scrabble game built with Go using client-server architecture. The server manages game state and validates moves, while clients provide the user interface for gameplay.
+
+The game supports persistent sessions, allowing players to reconnect after disconnections, and automatically expires games after 1 week of inactivity.
+
+### Game Rules Foundation
+This design implements the complete Scrabble game rules as documented in [rules_of_scrabble.md](rules_of_scrabble.md). All game mechanics, scoring systems, board layout, and gameplay features are based on the official Scrabble rules outlined in that document.
 
 ## Architecture
 
 ### High-Level Design
 ```
-┌─────────────┐    WebSocket/TCP    ┌─────────────┐
+┌─────────────┐    WebSocket/TCP   ┌─────────────┐
 │   Client 1  │◄──────────────────►│             │
 ├─────────────┤                    │             │
 │   Client 2  │◄──────────────────►│   Server    │
@@ -75,7 +80,8 @@ scrabbled/
 │   └── words.txt            # Dictionary file
 ├── docs/
 │   ├── rules_of_scrabble.md
-│   └── implementation_plan.md
+│   ├── design_requirements.md
+│   └── implementation_checklist.md
 ├── go.mod
 └── README.md
 ```
@@ -287,72 +293,7 @@ type GameUpdateResponse struct {
 }
 ```
 
-## Implementation Phases
 
-### Phase 1: Core Game Engine (Weeks 1-2)
-- [ ] Implement basic data structures (Board, Tile, Player)
-- [ ] Create tile bag with proper distribution
-- [ ] Implement board validation logic
-- [ ] Basic scoring calculations
-- [ ] Unit tests for core logic
-
-**Deliverables:**
-- Working game engine with move validation
-- Comprehensive test suite
-- Dictionary loading functionality
-
-### Phase 2: Server Infrastructure (Weeks 3-4)
-- [ ] WebSocket server setup
-- [ ] Game room management
-- [ ] Client connection handling
-- [ ] Message routing and validation
-- [ ] Concurrent game support
-
-**Deliverables:**
-- Multi-client server capable of managing multiple games
-- WebSocket communication protocol
-- Game state synchronization
-
-### Phase 2.5: Persistence Layer (Weeks 4-5)
-- [ ] Database schema design and implementation
-- [ ] Game state serialization/deserialization
-- [ ] Storage layer interfaces and implementations
-- [ ] Session management system
-- [ ] Game expiration and cleanup service
-
-**Deliverables:**
-- Persistent game state across server restarts
-- Player session management
-- Automatic cleanup of expired games
-
-### Phase 3: Basic Client (Weeks 6-7)
-- [ ] Terminal-based client interface
-- [ ] Board rendering in text format
-- [ ] User input handling
-- [ ] Real-time game updates
-- [ ] Move validation feedback
-- [ ] Client-side session persistence
-- [ ] Reconnection logic and UI
-
-**Deliverables:**
-- Functional terminal client
-- Complete game playable end-to-end
-- Client-server integration tested
-- Players can reconnect to games after disconnection
-
-### Phase 4: Advanced Features (Weeks 7-8)
-- [ ] Word challenge system
-- [ ] Tile exchange functionality
-- [ ] Game replay system
-- [ ] Spectator mode
-- [ ] Enhanced error handling
-
-### Phase 5: Polish & Optimization (Weeks 9-10)
-- [ ] Performance optimization
-- [ ] Comprehensive logging
-- [ ] Configuration management
-- [ ] Documentation completion
-- [ ] Deployment preparation
 
 ## Key Implementation Details
 
@@ -466,24 +407,7 @@ func (c *CleanupService) cleanupExpiredGames() {
 - Connection pooling for high concurrent loads
 - Caching for frequently accessed game data
 
-## Testing Strategy
 
-### Unit Tests
-- Game logic validation
-- Scoring calculations
-- Dictionary operations
-- Board state management
-
-### Integration Tests
-- Client-server communication
-- Multi-player scenarios
-- Game flow from start to finish
-- Error condition handling
-
-### Load Testing
-- Multiple concurrent games
-- High-frequency move submissions
-- Client connection/disconnection stress testing
 
 ## Configuration Management
 
@@ -557,4 +481,8 @@ CMD ["./server"]
 
 ---
 
-This implementation plan provides a solid foundation for building a production-ready Scrabble game in Go with room for future enhancements and scaling. 
+## Implementation
+
+For detailed implementation tasks and tracking, see [implementation_checklist.md](implementation_checklist.md).
+
+This design document provides the architectural foundation for building a production-ready Scrabble game in Go with room for future enhancements and scaling. 
