@@ -8,32 +8,49 @@ The game supports persistent sessions, allowing players to reconnect after disco
 ### Game Rules Foundation
 This design implements the complete Scrabble game rules as documented in [rules_of_scrabble.md](rules_of_scrabble.md). All game mechanics, scoring systems, board layout, and gameplay features are based on the official Scrabble rules outlined in that document.
 
+### Client Architecture Strategy
+The primary client will be **web browser-based** using HTML, CSS, and JavaScript. This approach provides:
+
+- **Universal Access**: Players can join games from any device with a web browser
+- **No Installation Required**: Instant access without downloading applications
+- **Cross-Platform Compatibility**: Works on Windows, Mac, Linux, mobile devices
+- **Easy Updates**: Server-side deployment updates all clients instantly
+
+The WebSocket-based server architecture supports **future native clients** including:
+- Standalone desktop applications (Go, Electron, etc.)
+- Mobile apps (React Native, Flutter, native iOS/Android)
+- Terminal clients for developers
+- Third-party client implementations
+
+All clients communicate through the same WebSocket protocol, ensuring feature parity and allowing mixed client types in the same game.
+
 ## Architecture
 
 ### High-Level Design
 ```
-┌─────────────┐    WebSocket/TCP   ┌─────────────┐
-│   Client 1  │◄──────────────────►│             │
+┌─────────────┐    WebSocket/HTTP   ┌─────────────┐
+│Web Browser 1│◄──────────────────►│             │
 ├─────────────┤                    │             │
-│   Client 2  │◄──────────────────►│   Server    │
+│Web Browser 2│◄──────────────────►│   Go Server │
 ├─────────────┤                    │             │
-│   Client 3  │◄──────────────────►│             │
+│Web Browser 3│◄──────────────────►│             │
 ├─────────────┤                    │             │
-│   Client 4  │◄──────────────────►│             │
+│Future Client│◄──────────────────►│             │
 └─────────────┘                    └─────────────┘
                                          │
                                          ▼
                                    ┌─────────────┐
+                                   │ Database +  │
                                    │ Dictionary  │
-                                   │  (words.txt)│
                                    └─────────────┘
 ```
 
 ### Technology Stack
-- **Language**: Go 1.21+
-- **Communication**: WebSocket (gorilla/websocket) or gRPC
+- **Server Language**: Go 1.21+
+- **Communication**: WebSocket (gorilla/websocket)
 - **Dictionary**: Text file (words.txt)
-- **Client UI**: Terminal-based (initially) or Web-based
+- **Primary Client**: Web browser (HTML/CSS/JavaScript)
+- **Future Clients**: Native Go, mobile apps, desktop applications
 - **Concurrency**: Goroutines and channels
 - **Persistence**: SQLite (development) / PostgreSQL (production)
 - **Session Management**: Redis for player sessions
@@ -44,10 +61,20 @@ This design implements the complete Scrabble game rules as documented in [rules_
 ```
 scrabbled/
 ├── cmd/
-│   ├── server/
-│   │   └── main.go           # Server entry point
-│   └── client/
-│       └── main.go           # Client entry point
+│   └── server/
+│       └── main.go           # Server entry point
+├── web/
+│   ├── static/
+│   │   ├── css/
+│   │   │   └── style.css     # Game styling
+│   │   ├── js/
+│   │   │   ├── game.js       # Game logic client-side
+│   │   │   ├── websocket.js  # WebSocket communication
+│   │   │   └── ui.js         # User interface handling
+│   │   └── assets/
+│   │       └── images/       # Game assets
+│   └── templates/
+│       └── index.html        # Main game interface
 ├── internal/
 │   ├── game/
 │   │   ├── board.go          # Board logic and validation
@@ -62,17 +89,13 @@ scrabbled/
 │   │   ├── database.go       # Database abstraction layer
 │   │   ├── game_store.go     # Game persistence operations
 │   │   └── session_store.go  # Player session management
-│   ├── server/
-│   │   ├── server.go         # HTTP/WebSocket server
-│   │   ├── handlers.go       # Game event handlers
-│   │   ├── room.go           # Game room management
-│   │   ├── session.go        # Player session handling
-│   │   └── cleanup.go        # Game expiration cleanup
-│   └── client/
-│       ├── client.go         # Client connection logic
-│       ├── ui.go             # User interface
-│       ├── renderer.go       # Board rendering
-│       └── reconnection.go   # Reconnection logic
+│   └── server/
+│       ├── server.go         # HTTP/WebSocket server
+│       ├── handlers.go       # Game event handlers
+│       ├── room.go           # Game room management
+│       ├── session.go        # Player session handling
+│       ├── static.go         # Static file serving
+│       └── cleanup.go        # Game expiration cleanup
 ├── pkg/
 │   └── protocol/
 │       └── messages.go       # Client-server message types
@@ -200,13 +223,14 @@ func (d *Dictionary) LoadFromFile(filename string) error
 #### Server Structure
 ```go
 type Server struct {
-    games      map[string]*Game
-    clients    map[string]*Client
-    dictionary *Dictionary
-    gameStore  storage.GameStore
+    games        map[string]*Game
+    clients      map[string]*Client
+    dictionary   *Dictionary
+    gameStore    storage.GameStore
     sessionStore storage.SessionStore
-    cleanup    *CleanupService
-    mu         sync.RWMutex
+    cleanup      *CleanupService
+    staticFiles  http.Handler  // Serves web client files
+    mu           sync.RWMutex
 }
 
 type Client struct {
@@ -290,6 +314,72 @@ type PlaceTilesRequest struct {
 type GameUpdateResponse struct {
     Game    GameSnapshot `json:"game"`
     Players []Player     `json:"players"`
+}
+```
+
+### 5. Web Client Architecture
+
+#### Client-Side Structure
+```javascript
+// WebSocket connection management
+class GameClient {
+    constructor(serverUrl) {
+        this.ws = new WebSocket(serverUrl);
+        this.gameState = null;
+        this.playerId = null;
+        this.sessionId = localStorage.getItem('scrabble_session');
+    }
+    
+    // Handle server messages
+    onMessage(message) {
+        const data = JSON.parse(message.data);
+        switch(data.type) {
+            case 'game_update':
+                this.updateGameState(data.data);
+                break;
+            case 'player_reconnected':
+                this.handlePlayerReconnection(data.data);
+                break;
+            // ... other message types
+        }
+    }
+    
+    // Send moves to server
+    placeTiles(tiles) {
+        this.send('place_tiles', { tiles });
+    }
+}
+
+// Game board rendering
+class BoardRenderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+    }
+    
+    render(board) {
+        // Draw 15x15 grid with premium squares
+        // Render placed tiles
+        // Highlight possible moves
+    }
+}
+
+// User interface management
+class GameUI {
+    constructor(gameClient, boardRenderer) {
+        this.client = gameClient;
+        this.board = boardRenderer;
+        this.setupEventListeners();
+    }
+    
+    // Handle user interactions
+    onTileClick(position) {
+        // Tile placement logic
+    }
+    
+    onSubmitMove() {
+        // Validate and submit move
+    }
 }
 ```
 
@@ -460,11 +550,18 @@ CMD ["./server"]
 
 ## Future Enhancements
 
-### Web Client
-- React/Vue.js web interface
-- Drag-and-drop tile placement
-- Real-time animations
-- Mobile responsiveness
+### Enhanced Web Client
+- Modern JavaScript framework (React/Vue.js) implementation
+- Advanced drag-and-drop tile placement
+- Real-time animations and transitions
+- Progressive Web App (PWA) support for offline capability
+- Enhanced mobile responsiveness and touch gestures
+
+### Native Client Development
+- Standalone desktop applications (Go with GUI frameworks)
+- Mobile apps (React Native, Flutter, or native development)
+- Terminal-based clients for developers
+- Third-party client SDK for community development
 
 ### Advanced Features
 - Tournament mode
