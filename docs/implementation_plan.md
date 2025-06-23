@@ -30,6 +30,9 @@ Develop a multiplayer Scrabble game using Go with client-server architecture. Th
 - **Dictionary**: Text file (words.txt)
 - **Client UI**: Terminal-based (initially) or Web-based
 - **Concurrency**: Goroutines and channels
+- **Persistence**: SQLite (development) / PostgreSQL (production)
+- **Session Management**: Redis for player sessions
+- **Cleanup**: Background goroutines for game expiration
 
 ## Project Structure
 
@@ -46,17 +49,25 @@ scrabbled/
 │   │   ├── tile.go           # Tile management
 │   │   ├── player.go         # Player state
 │   │   ├── game.go           # Game state and rules
-│   │   └── scoring.go        # Scoring calculations
+│   │   ├── scoring.go        # Scoring calculations
+│   │   └── persistence.go    # Game state serialization
 │   ├── dictionary/
 │   │   └── dictionary.go     # Word validation
+│   ├── storage/
+│   │   ├── database.go       # Database abstraction layer
+│   │   ├── game_store.go     # Game persistence operations
+│   │   └── session_store.go  # Player session management
 │   ├── server/
 │   │   ├── server.go         # HTTP/WebSocket server
 │   │   ├── handlers.go       # Game event handlers
-│   │   └── room.go           # Game room management
+│   │   ├── room.go           # Game room management
+│   │   ├── session.go        # Player session handling
+│   │   └── cleanup.go        # Game expiration cleanup
 │   └── client/
 │       ├── client.go         # Client connection logic
 │       ├── ui.go             # User interface
-│       └── renderer.go       # Board rendering
+│       ├── renderer.go       # Board rendering
+│       └── reconnection.go   # Reconnection logic
 ├── pkg/
 │   └── protocol/
 │       └── messages.go       # Client-server message types
@@ -138,6 +149,9 @@ type Game struct {
     CurrentTurn int
     GameState   GameState
     History     []Move
+    CreatedAt   time.Time
+    LastActivity time.Time
+    ExpiresAt   time.Time
     mu          sync.RWMutex
 }
 
@@ -183,15 +197,56 @@ type Server struct {
     games      map[string]*Game
     clients    map[string]*Client
     dictionary *Dictionary
+    gameStore  storage.GameStore
+    sessionStore storage.SessionStore
+    cleanup    *CleanupService
     mu         sync.RWMutex
 }
 
 type Client struct {
-    ID     string
-    Name   string
-    Conn   *websocket.Conn
-    GameID string
-    Send   chan []byte
+    ID       string
+    Name     string
+    Conn     *websocket.Conn
+    GameID   string
+    PlayerID string
+    SessionID string
+    Send     chan []byte
+}
+
+type CleanupService struct {
+    gameStore storage.GameStore
+    ticker    *time.Ticker
+    done      chan bool
+}
+```
+
+### 4. Storage Layer (`internal/storage/`)
+
+#### Game Persistence
+```go
+type GameStore interface {
+    SaveGame(game *Game) error
+    LoadGame(gameID string) (*Game, error)
+    DeleteGame(gameID string) error
+    GetExpiredGames() ([]string, error)
+    UpdateLastActivity(gameID string) error
+}
+
+type SessionStore interface {
+    SaveSession(session *PlayerSession) error
+    GetSession(sessionID string) (*PlayerSession, error)
+    DeleteSession(sessionID string) error
+    GetPlayerSessions(playerID string) ([]*PlayerSession, error)
+}
+
+type PlayerSession struct {
+    ID          string
+    PlayerID    string
+    GameID      string
+    PlayerName  string
+    CreatedAt   time.Time
+    LastSeen    time.Time
+    ExpiresAt   time.Time
 }
 ```
 
@@ -199,13 +254,16 @@ type Client struct {
 ```go
 type MessageType string
 const (
-    JoinGame    MessageType = "join_game"
-    PlaceTiles  MessageType = "place_tiles"
+    JoinGame     MessageType = "join_game"
+    RejoinGame   MessageType = "rejoin_game"
+    PlaceTiles   MessageType = "place_tiles"
     ExchangeTiles MessageType = "exchange_tiles"
-    PassTurn    MessageType = "pass_turn"
-    GameUpdate  MessageType = "game_update"
-    Error       MessageType = "error"
-    Challenge   MessageType = "challenge"
+    PassTurn     MessageType = "pass_turn"
+    GameUpdate   MessageType = "game_update"
+    PlayerReconnected MessageType = "player_reconnected"
+    PlayerDisconnected MessageType = "player_disconnected"
+    Error        MessageType = "error"
+    Challenge    MessageType = "challenge"
 )
 
 type Message struct {
@@ -255,17 +313,32 @@ type GameUpdateResponse struct {
 - WebSocket communication protocol
 - Game state synchronization
 
-### Phase 3: Basic Client (Weeks 5-6)
+### Phase 2.5: Persistence Layer (Weeks 4-5)
+- [ ] Database schema design and implementation
+- [ ] Game state serialization/deserialization
+- [ ] Storage layer interfaces and implementations
+- [ ] Session management system
+- [ ] Game expiration and cleanup service
+
+**Deliverables:**
+- Persistent game state across server restarts
+- Player session management
+- Automatic cleanup of expired games
+
+### Phase 3: Basic Client (Weeks 6-7)
 - [ ] Terminal-based client interface
 - [ ] Board rendering in text format
 - [ ] User input handling
 - [ ] Real-time game updates
 - [ ] Move validation feedback
+- [ ] Client-side session persistence
+- [ ] Reconnection logic and UI
 
 **Deliverables:**
 - Functional terminal client
 - Complete game playable end-to-end
 - Client-server integration tested
+- Players can reconnect to games after disconnection
 
 ### Phase 4: Advanced Features (Weeks 7-8)
 - [ ] Word challenge system
@@ -300,6 +373,78 @@ func (g *Game) validateMove(move Move) error {
         }
     }
     return nil
+}
+```
+
+### Game Persistence & Session Management
+```go
+// Save game state after each move
+func (s *Server) handleMove(client *Client, move Move) error {
+    game := s.games[client.GameID]
+    if err := game.ApplyMove(move); err != nil {
+        return err
+    }
+    
+    // Update last activity and save to database
+    game.LastActivity = time.Now()
+    if err := s.gameStore.SaveGame(game); err != nil {
+        log.Error("Failed to save game:", err)
+    }
+    
+    s.broadcastGameUpdate(game)
+    return nil
+}
+
+// Handle player reconnection
+func (s *Server) handleRejoin(client *Client, sessionID string) error {
+    session, err := s.sessionStore.GetSession(sessionID)
+    if err != nil {
+        return fmt.Errorf("invalid session: %w", err)
+    }
+    
+    game, err := s.gameStore.LoadGame(session.GameID)
+    if err != nil {
+        return fmt.Errorf("game not found: %w", err)
+    }
+    
+    // Reconnect player to game
+    client.GameID = game.ID
+    client.PlayerID = session.PlayerID
+    s.games[game.ID] = game
+    
+    // Notify other players
+    s.broadcastPlayerReconnected(game, session.PlayerID)
+    return nil
+}
+
+// Background cleanup of expired games
+func (c *CleanupService) Start() {
+    c.ticker = time.NewTicker(1 * time.Hour)
+    go func() {
+        for {
+            select {
+            case <-c.ticker.C:
+                c.cleanupExpiredGames()
+            case <-c.done:
+                c.ticker.Stop()
+                return
+            }
+        }
+    }()
+}
+
+func (c *CleanupService) cleanupExpiredGames() {
+    expiredGames, err := c.gameStore.GetExpiredGames()
+    if err != nil {
+        log.Error("Failed to get expired games:", err)
+        return
+    }
+    
+    for _, gameID := range expiredGames {
+        if err := c.gameStore.DeleteGame(gameID); err != nil {
+            log.Error("Failed to delete expired game:", gameID, err)
+        }
+    }
 }
 ```
 
@@ -349,6 +494,19 @@ type ServerConfig struct {
     MaxGames       int    `json:"max_games"`
     MaxPlayersPerGame int `json:"max_players_per_game"`
     LogLevel       string `json:"log_level"`
+    Database       DatabaseConfig `json:"database"`
+    GameExpiration time.Duration  `json:"game_expiration"`
+    CleanupInterval time.Duration `json:"cleanup_interval"`
+}
+
+type DatabaseConfig struct {
+    Type     string `json:"type"`     // "sqlite" or "postgres"
+    Host     string `json:"host"`
+    Port     int    `json:"port"`
+    Name     string `json:"name"`
+    User     string `json:"user"`
+    Password string `json:"password"`
+    SSLMode  string `json:"ssl_mode"`
 }
 ```
 

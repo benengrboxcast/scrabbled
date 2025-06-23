@@ -14,6 +14,9 @@
 - [ ] Add WebSocket library (`go get github.com/gorilla/websocket`)
 - [ ] Add UUID library for game/player IDs (`go get github.com/google/uuid`)
 - [ ] Add logging library (`go get github.com/sirupsen/logrus`)
+- [ ] Add database driver (`go get github.com/lib/pq` for PostgreSQL, `go get github.com/mattn/go-sqlite3` for SQLite)
+- [ ] Add database migration tool (`go get github.com/golang-migrate/migrate`)
+- [ ] Add JSON serialization utilities (`encoding/json` built-in)
 - [ ] Set up testing framework and test utilities
 - [ ] Add configuration management library (`go get github.com/spf13/viper`)
 
@@ -84,7 +87,7 @@
 - [ ] Write tests for word formation detection (horizontal, vertical, crosswords)
 
 ### Game Logic (`internal/game/game.go`)
-- [ ] Define `Game` struct with all game state
+- [ ] Define `Game` struct with all game state (including timestamps)
 - [ ] Write tests for game initialization
 - [ ] Define `Move` and `PlacedTile` structs
 - [ ] Write tests for move validation structures
@@ -102,6 +105,18 @@
 - [ ] Write tests for game state transitions
 - [ ] Implement game end conditions
 - [ ] Write tests for game end scenarios (empty bag, all pass, etc.)
+- [ ] Add game activity tracking (`UpdateLastActivity()`)
+- [ ] Write tests for activity tracking and expiration logic
+
+### Game Persistence (`internal/game/persistence.go`)
+- [ ] Implement `SerializeGame(game *Game) ([]byte, error)` for JSON serialization
+- [ ] Write tests for game serialization (all game states, edge cases)
+- [ ] Implement `DeserializeGame(data []byte) (*Game, error)` for JSON deserialization
+- [ ] Write tests for game deserialization (corruption handling, version compatibility)
+- [ ] Add game state validation after deserialization
+- [ ] Write tests for deserialized game integrity
+- [ ] Handle backward compatibility for game state format changes
+- [ ] Write tests for version migration scenarios
 
 ---
 
@@ -134,26 +149,76 @@
 
 ---
 
+## 💾 Storage Layer Implementation
+
+### Database Schema (`internal/storage/database.go`)
+- [ ] Design database schema for games table
+- [ ] Write tests for schema validation
+- [ ] Design database schema for player_sessions table
+- [ ] Write tests for session schema validation
+- [ ] Implement database connection management
+- [ ] Write tests for connection pooling and error handling
+- [ ] Implement database migration system
+- [ ] Write tests for migration up/down operations
+- [ ] Add database health checks
+- [ ] Write tests for database connectivity monitoring
+
+### Game Storage (`internal/storage/game_store.go`)
+- [ ] Implement `GameStore` interface
+- [ ] Write tests for interface compliance
+- [ ] Implement `SaveGame(game *Game) error` method
+- [ ] Write tests for game saving (new games, updates, large games)
+- [ ] Implement `LoadGame(gameID string) (*Game, error)` method
+- [ ] Write tests for game loading (existing, non-existent, corrupted data)
+- [ ] Implement `DeleteGame(gameID string) error` method
+- [ ] Write tests for game deletion
+- [ ] Implement `GetExpiredGames() ([]string, error)` method
+- [ ] Write tests for expired game detection
+- [ ] Implement `UpdateLastActivity(gameID string) error` method
+- [ ] Write tests for activity tracking
+- [ ] Add database transaction support for game operations
+- [ ] Write tests for transaction rollback scenarios
+
+### Session Storage (`internal/storage/session_store.go`)
+- [ ] Implement `SessionStore` interface
+- [ ] Write tests for session interface compliance
+- [ ] Implement `SaveSession(session *PlayerSession) error` method
+- [ ] Write tests for session creation and updates
+- [ ] Implement `GetSession(sessionID string) (*PlayerSession, error)` method
+- [ ] Write tests for session retrieval
+- [ ] Implement `DeleteSession(sessionID string) error` method
+- [ ] Write tests for session cleanup
+- [ ] Implement `GetPlayerSessions(playerID string) ([]*PlayerSession, error)` method
+- [ ] Write tests for multi-session player scenarios
+- [ ] Add session expiration handling
+- [ ] Write tests for automatic session cleanup
+
+---
+
 ## 🌐 Server Infrastructure Implementation
 
 ### Protocol Definition (`pkg/protocol/messages.go`)
-- [ ] Define `MessageType` constants
+- [ ] Define `MessageType` constants (including reconnection types)
 - [ ] Write tests for message type validation
 - [ ] Define `Message` struct with type, data, timestamp
 - [ ] Write tests for message structure validation
 - [ ] Define `JoinGameRequest` struct
 - [ ] Write tests for join game request validation
+- [ ] Define `RejoinGameRequest` struct for reconnection
+- [ ] Write tests for rejoin game request validation
 - [ ] Define `PlaceTilesRequest` struct
 - [ ] Write tests for place tiles request validation
 - [ ] Define `ExchangeTilesRequest` struct
 - [ ] Write tests for exchange tiles request validation
 - [ ] Define `GameUpdateResponse` struct
 - [ ] Write tests for game update response structure
+- [ ] Define `PlayerReconnectedResponse` struct
+- [ ] Write tests for reconnection notifications
 - [ ] Define `ErrorResponse` struct
 - [ ] Write tests for error response formatting
 - [ ] Define `ChallengeRequest` struct
 - [ ] Write tests for challenge request validation
-- [ ] Add JSON marshaling/unmarshaling
+- [ ] Add JSON marshaling/unmarshaling for all message types
 - [ ] Write tests for JSON serialization/deserialization
 
 ### Server Core (`internal/server/server.go`)
@@ -185,22 +250,67 @@
 
 ### Game Handlers (`internal/server/handlers.go`)
 - [ ] Implement `handleJoinGame` message handler
-- [ ] Implement `handlePlaceTiles` message handler
+- [ ] Write tests for join game handling
+- [ ] Implement `handleRejoinGame` message handler for reconnections
+- [ ] Write tests for rejoin game handling (valid/invalid sessions)
+- [ ] Implement `handlePlaceTiles` message handler (with persistence)
+- [ ] Write tests for place tiles with game saving
 - [ ] Implement `handleExchangeTiles` message handler
+- [ ] Write tests for tile exchange handling
 - [ ] Implement `handlePassTurn` message handler
+- [ ] Write tests for pass turn handling
 - [ ] Implement `handleChallenge` message handler
+- [ ] Write tests for challenge handling
 - [ ] Add message validation and error handling
-- [ ] Implement game state broadcasting
-- [ ] Write handler unit tests
+- [ ] Write tests for message validation
+- [ ] Implement game state broadcasting to all players
+- [ ] Write tests for broadcast functionality
+- [ ] Add automatic game saving after each move
+- [ ] Write tests for persistent game state updates
 
 ### Room Management (`internal/server/room.go`)
 - [ ] Define `Room` struct for game sessions
+- [ ] Write tests for room structure
 - [ ] Implement room creation and deletion
+- [ ] Write tests for room lifecycle
 - [ ] Implement player joining/leaving rooms
-- [ ] Add room capacity management
+- [ ] Write tests for player room management
+- [ ] Add room capacity management (2-4 players)
+- [ ] Write tests for capacity limits
 - [ ] Implement room state synchronization
+- [ ] Write tests for state sync across players
 - [ ] Add room cleanup on empty
-- [ ] Write room management tests
+- [ ] Write tests for automatic room cleanup
+- [ ] Integrate with game persistence (save/load from database)
+- [ ] Write tests for persistent room state
+
+### Session Management (`internal/server/session.go`)
+- [ ] Define `PlayerSession` struct with expiration
+- [ ] Write tests for session structure and validation
+- [ ] Implement session creation on player join
+- [ ] Write tests for session creation
+- [ ] Implement session validation for reconnection
+- [ ] Write tests for session validation (expired, invalid)
+- [ ] Implement session cleanup on disconnect/timeout
+- [ ] Write tests for session lifecycle management
+- [ ] Add session persistence to database
+- [ ] Write tests for session storage operations
+- [ ] Implement session-based game loading
+- [ ] Write tests for game restoration from sessions
+
+### Cleanup Service (`internal/server/cleanup.go`)
+- [ ] Define `CleanupService` struct with ticker
+- [ ] Write tests for cleanup service initialization
+- [ ] Implement periodic game expiration check (hourly)
+- [ ] Write tests for expiration detection
+- [ ] Implement expired game deletion from database
+- [ ] Write tests for game cleanup operations
+- [ ] Implement session expiration cleanup
+- [ ] Write tests for session cleanup
+- [ ] Add cleanup metrics and logging
+- [ ] Write tests for cleanup monitoring
+- [ ] Implement graceful cleanup service shutdown
+- [ ] Write tests for service lifecycle management
 
 ---
 
@@ -226,11 +336,29 @@
 
 ### Input Handling (`internal/client/input.go`)
 - [ ] Implement command parsing for user input
+- [ ] Write tests for command parsing
 - [ ] Add move validation before sending to server
+- [ ] Write tests for client-side move validation
 - [ ] Implement tile selection and placement logic
+- [ ] Write tests for tile selection interface
 - [ ] Add input sanitization and validation
+- [ ] Write tests for input sanitization
 - [ ] Implement command history
-- [ ] Write input parsing tests
+- [ ] Write tests for command history functionality
+
+### Reconnection Logic (`internal/client/reconnection.go`)
+- [ ] Implement session ID persistence (local file)
+- [ ] Write tests for session storage
+- [ ] Implement automatic reconnection on startup
+- [ ] Write tests for reconnection attempts
+- [ ] Add reconnection UI messages and prompts
+- [ ] Write tests for reconnection user experience
+- [ ] Implement game state restoration after reconnection
+- [ ] Write tests for state restoration
+- [ ] Add connection monitoring and retry logic
+- [ ] Write tests for connection failure handling
+- [ ] Implement graceful handling of expired sessions
+- [ ] Write tests for expired session scenarios
 
 ---
 
@@ -326,11 +454,13 @@
 ## 📦 Deployment & Operations
 
 ### Configuration Management
-- [ ] Create server configuration file structure
+- [ ] Create server configuration file structure (including database config)
 - [ ] Implement environment variable support
-- [ ] Add configuration validation
+- [ ] Add configuration validation (database connection strings)
 - [ ] Create development/production configs
 - [ ] Document all configuration options
+- [ ] Add database migration configuration
+- [ ] Create sample .env files for different environments
 
 ### Docker Setup
 - [ ] Create server Dockerfile
@@ -393,7 +523,7 @@
 ### Phase 1 Complete (Core Engine)
 - [ ] All game logic implemented with unit tests
 - [ ] Dictionary service working with tests
-- [ ] Basic server infrastructure with tests
+- [ ] Game state serialization/deserialization working
 - [ ] Core data structures validated with comprehensive test coverage
 
 ### Phase 2 Complete (Server)
@@ -402,10 +532,19 @@
 - [ ] Client connection management with tests
 - [ ] Message protocol working with serialization tests
 
+### Phase 2.5 Complete (Persistence)
+- [ ] Database schema implemented and tested
+- [ ] Game state persistence working with tests
+- [ ] Session management system operational
+- [ ] Game expiration and cleanup service running
+- [ ] Storage layer fully tested and validated
+
 ### Phase 3 Complete (Client)
 - [ ] Functional terminal client with unit tests
 - [ ] Complete game playable end-to-end with integration tests
 - [ ] Real-time updates working with tests
+- [ ] Player reconnection functionality working
+- [ ] Session persistence and restoration working
 - [ ] Error handling implemented with test coverage
 
 ### Phase 4 Complete (Advanced Features)
@@ -423,10 +562,19 @@
 
 ---
 
-**Total Estimated Tasks: ~100+ individual items**
+**Total Estimated Tasks: ~140+ individual items**
 
 **Recommended Approach:**
 1. Complete tasks in order within each section
 2. Test thoroughly before moving to next section
 3. Maintain running integration tests
-4. Deploy and test frequently during development 
+4. Set up database early for persistence testing
+5. Test reconnection scenarios frequently
+6. Deploy and test frequently during development
+
+**New Persistence Features Summary:**
+- **Game State Persistence**: Games survive server restarts
+- **Player Sessions**: Players can reconnect to their games
+- **Automatic Expiration**: Games cleanup after 1 week of inactivity
+- **Robust Reconnection**: Handles network interruptions gracefully
+- **Data Integrity**: Full transaction support for game operations 
