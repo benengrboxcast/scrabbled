@@ -4,8 +4,8 @@
 
 ### 🏗️ Project Structure Setup
 - [x] Initialize Go module (`go mod init scrabbled`)
-- [ ] Create directory structure according to plan
-- [ ] Set up `.gitignore` for Go projects
+- [x] Create directory structure according to plan
+- [x] Set up `.gitignore` for Go projects
 - [ ] Create basic `README.md` with project description
 - [ ] Set up GitHub repository (if using)
 - [ ] Initialize basic configuration files
