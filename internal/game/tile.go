@@ -4,7 +4,6 @@ import (
 	"errors"
 	"math/rand"
 	"sync"
-	"time"
 )
 
 // Tile represents a single letter tile in Scrabble
@@ -78,7 +77,7 @@ func NewTileBag() *TileBag {
 
 // shuffle randomizes the order of tiles in the bag
 func (tb *TileBag) shuffle() {
-	rand.Seed(time.Now().UnixNano())
+	// In Go 1.20+, the global rand functions are automatically seeded
 	for i := len(tb.tiles) - 1; i > 0; i-- {
 		j := rand.Intn(i + 1)
 		tb.tiles[i], tb.tiles[j] = tb.tiles[j], tb.tiles[i]
