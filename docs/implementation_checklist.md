@@ -19,20 +19,20 @@
 ## 🎲 Core Game Engine Implementation
 
 ### Tile System (`internal/game/tile.go`)
-- [ ] Define `Tile` struct with letter, points, and blank status
-- [ ] Write tests for `Tile` struct validation
-- [ ] Implement tile point values according to Scrabble rules
-- [ ] Write tests for tile point value correctness
-- [ ] Create `TileBag` struct with proper tile distribution
-- [ ] Write tests for proper tile distribution (100 tiles, correct counts)
-- [ ] Implement `DrawTiles(count int) []Tile` method
-- [ ] Write tests for `DrawTiles` (boundary conditions, empty bag)
-- [ ] Implement `ReturnTiles(tiles []Tile)` method
-- [ ] Write tests for `ReturnTiles` functionality
-- [ ] Implement `RemainingCount() int` method
-- [ ] Write tests for `RemainingCount` accuracy
-- [ ] Add thread-safety with mutex
-- [ ] Write concurrent tests for thread-safety
+- [x] Define `Tile` struct with letter, points, and blank status
+- [x] Write tests for `Tile` struct validation
+- [x] Implement tile point values according to Scrabble rules
+- [x] Write tests for tile point value correctness
+- [x] Create `TileBag` struct with proper tile distribution
+- [x] Write tests for proper tile distribution (100 tiles, correct counts)
+- [x] Implement `DrawTiles(count int) []Tile` method
+- [x] Write tests for `DrawTiles` (boundary conditions, empty bag)
+- [x] Implement `ReturnTiles(tiles []Tile)` method
+- [x] Write tests for `ReturnTiles` functionality
+- [x] Implement `RemainingCount() int` method
+- [x] Write tests for `RemainingCount` accuracy
+- [x] Add thread-safety with mutex
+- [x] Write concurrent tests for thread-safety
 
 ### Board System (`internal/game/board.go`)
 - [ ] Define `Board` struct with 15x15 grid
