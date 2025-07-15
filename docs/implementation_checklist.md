@@ -35,24 +35,24 @@
 - [x] Write concurrent tests for thread-safety
 
 ### Board System (`internal/game/board.go`)
-- [ ] Define `Board` struct with 15x15 grid
-- [ ] Write tests for board initialization
-- [ ] Define `Square` struct with tile and premium type
-- [ ] Write tests for square state management
-- [ ] Define `Position` struct with row/col coordinates
-- [ ] Write tests for position validation
-- [ ] Implement premium square initialization
-- [ ] Write tests for premium square placement (verify all 61 premium squares)
-- [ ] Create `PlaceTile(tile Tile, pos Position) error` method
-- [ ] Write tests for tile placement (valid/invalid positions, occupied squares)
-- [ ] Create `GetTile(pos Position) *Tile` method
-- [ ] Write tests for tile retrieval
-- [ ] Create `IsValidPosition(pos Position) bool` method
-- [ ] Write tests for position boundary checking
-- [ ] Implement `GetAdjacentPositions(pos Position) []Position`
-- [ ] Write tests for adjacency logic (edges, corners, center)
-- [ ] Add board state validation methods
-- [ ] Write tests for board state validation
+- [x] Define `Board` struct with 15x15 grid
+- [x] Write tests for board initialization
+- [x] Define `Square` struct with tile and premium type
+- [x] Write tests for square state management
+- [x] Define `Position` struct with row/col coordinates
+- [x] Write tests for position validation
+- [x] Implement premium square initialization
+- [x] Write tests for premium square placement (verify all 61 premium squares)
+- [x] Create `PlaceTile(tile Tile, pos Position) error` method
+- [x] Write tests for tile placement (valid/invalid positions, occupied squares)
+- [x] Create `GetTile(pos Position) *Tile` method
+- [x] Write tests for tile retrieval
+- [x] Create `IsValidPosition(pos Position) bool` method
+- [x] Write tests for position boundary checking
+- [x] Implement `GetAdjacentPositions(pos Position) []Position`
+- [x] Write tests for adjacency logic (edges, corners, center)
+- [x] Add board state validation methods
+- [x] Write tests for board state validation
 
 ### Player Management (`internal/game/player.go`)
 - [ ] Define `Player` struct with ID, name, rack, score
