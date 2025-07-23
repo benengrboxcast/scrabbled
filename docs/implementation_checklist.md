@@ -55,16 +55,16 @@
 - [x] Write tests for board state validation
 
 ### Player Management (`internal/game/player.go`)
-- [ ] Define `Player` struct with ID, name, rack, score
-- [ ] Write tests for player creation and initialization
-- [ ] Implement `AddTilesToRack(tiles []Tile)` method
-- [ ] Write tests for adding tiles (rack limit, overflow handling)
-- [ ] Implement `RemoveTilesFromRack(indices []int) []Tile` method
-- [ ] Write tests for tile removal (invalid indices, empty rack)
-- [ ] Implement `GetRackSize() int` method
-- [ ] Write tests for rack size calculation
-- [ ] Add player state validation
-- [ ] Write tests for player state validation
+- [x] Define `Player` struct with ID, name, rack, score
+- [x] Write tests for player creation and initialization
+- [x] Implement `AddTilesToRack(tiles []Tile)` method
+- [x] Write tests for adding tiles (rack limit, overflow handling)
+- [x] Implement `RemoveTilesFromRack(indices []int) []Tile` method
+- [x] Write tests for tile removal (invalid indices, empty rack)
+- [x] Implement `GetRackSize() int` method
+- [x] Write tests for rack size calculation
+- [x] Add player state validation
+- [x] Write tests for player state validation
 
 ### Scoring System (`internal/game/scoring.go`)
 - [ ] Implement basic letter scoring
